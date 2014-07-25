@@ -1,0 +1,7 @@
+django
+psycopg2
+pep8
+nose
+django-nose
+coverage
+south

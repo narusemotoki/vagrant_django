@@ -1,0 +1,81 @@
+- name: Use UTF-8
+  hosts: vagrant
+  user: vagrant
+  sudo: yes
+  tasks:
+    - name: Make sure the system encoding is utf-8
+      template: src=templates/locale dest=/etc/default/locale owner=root group=root mode=644
+
+- name: Install packages via APT
+  hosts: vagrant
+  user: vagrant
+  sudo: yes
+  tasks:
+    - name: Install
+      apt: pkg={{ item }} update_cache=yes state=latest
+      with_items:
+        - nginx
+        - python-pip
+        - postgresql
+        - postgresql-client
+        - postgresql-contrib
+        - libssl-dev
+        - zlib1g-dev
+        - libbz2-dev
+        - postgresql-server-dev-9.3
+
+- name: Set up Python
+  hosts: vagrant
+  user: vagrant
+  sudo: yes
+  tasks:
+    - name: virtualenv
+      command: pip install virtualenvwrapper
+    - name: Replace setting file of bash
+      sudo: no
+      action: template src=templates/bashrc dest=/home/vagrant/.bashrc
+    - name: Pythonz
+      sudo: no
+      shell: |
+        if [ ! -s $HOME/.pythonz/etc/bashrc ]; then
+            curl -kL https://raw.github.com/saghul/pythonz/master/pythonz-install | bash
+        fi
+    - name: Python 3.4
+      sudo: no
+      shell: bash -c 'source /home/vagrant/.pythonz/etc/bashrc && pythonz install 3.4.1'
+    - name: virtualenv environment
+      sudo: no
+      shell: bash -c 'export WORKON_HOME=/home/vagrant/.virtualenvs && source /usr/local/bin/virtualenvwrapper.sh && mkvirtualenv dev -p /home/vagrant/.pythonz/pythons/CPython-3.4.1/bin/python'
+    - name: pip install
+      ignore_errors: yes
+      sudo: no
+      shell: bash -c 'export WORKON_HOME=/home/vagrant/.virtualenvs && source /usr/local/bin/virtualenvwrapper.sh && workon dev && pip install -r /srv/server/requirements.txt'
+
+- name: Set up PostgreSQL
+  hosts: vagrant
+  user: vagrant
+  sudo: yes
+  tasks:
+    - name: Make cluster
+      ignore_errors: yes
+      command: pg_createcluster --start -e UTF-8 9.3 main
+    - name: replace config
+      action: template src=templates/pg_hba.conf dest=/etc/postgresql/9.3/main/pg_hba.conf
+    - name: restart
+      action: service name=postgresql state=restarted
+    - name: set password
+      command: psql -U postgres -c "ALTER ROLE postgres WITH PASSWORD 'postgres';"
+    - name: create db
+      sudo: no
+      ignore_errors: yes
+      command: psql -U postgres -c "CREATE DATABASE dev ENCODING 'UTF8';"
+
+- name: Set up nginx
+  hosts: vagrant
+  user: vagrant
+  sudo: yes
+  tasks:
+    - name: Replace setting file
+      action: template src=templates/nginx_default dest=/etc/nginx/sites-available/default
+    - name: restart
+      action: service name=nginx state=restarted
