@@ -33,9 +33,11 @@ This project is set up Python 3.4 from source code. It takes long time.
 PostgreSQL
 ==========
 
-username: postgres
-password: postgres
-database name: dev
+::
+
+    username: postgres
+    password: postgres
+    database: dev
 
 Virtualenv
 ==========
